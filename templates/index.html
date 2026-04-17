@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Seat Simulation</title>
+        <script src="/static/htmx.js"></script>
+        <style>
+            .button {
+                display: inline-block;
+                border-radius: 25px;
+                border: 2px solid #237ce2;
+                padding: 40px;
+                margin: 15px;
+                width: 150px;
+                height: 150px; 
+                vertical-align: top;
+            }
+        </style>
+    </head>
+    <body>
+        <div>
+        <div class="button">
+            <label for="lift">Lift: <span id="lift-val">0.50</span></label> <br>
+            <input type="range" 
+                   name="lift" 
+                   min="0" 
+                   max="100" 
+                   step="1" 
+                   value="50"
+                   hx-post="/lift" 
+                   hx-trigger="input delay:20ms" 
+                   hx-target="#lift-val"
+                   hx-swap="innerHTML">
+        </div>
+        <div class="button">
+            <label for="pitch">Pitch: <span id="pitch-val">0.50</span></label> <br>
+            <input type="range" 
+                   name="pitch" 
+                   min="0" 
+                   max="100" 
+                   step="1" 
+                   value="50"
+                   hx-post="/pitch" 
+                   hx-trigger="input delay:20ms" 
+                   hx-target="#pitch-val"
+                   hx-swap="innerHTML">
+            <br><br>
+            <label for="phase">Phase: <span id="phase-val">500</span></label> <br>
+            <input type="range" 
+                   name="phase" 
+                   min="0" 
+                   max="5000" 
+                   step="10" 
+                   value="500"
+                   hx-post="/phase" 
+                   hx-trigger="input delay:20ms" 
+                   hx-target="#phase-val"
+                   hx-swap="innerHTML">
+        </div>
+        </div>
+        <br>
+
+        <div class="button" hx-get="/start" hx-target="#last-command" hx-swap="innerHTML">Start Seat</div>
+        <div class="button" hx-get="/stop"  hx-target="#last-command" hx-swap="innerHTML">Stop Seat</div>
+        <H3>Run state:</H3>
+        <div id="last-command">
+            Initial stop state, set period in ms before starting <br>
+            <label for="period">Period: <span id="period-val">2000</span></label> <br>
+            <input type="range" 
+                   name="period" 
+                   min="0" 
+                   max="10000" 
+                   step="10" 
+                   value="2000"
+                   hx-post="/period" 
+                   hx-trigger="input delay:20ms" 
+                   hx-target="#period-val"
+                   hx-swap="innerHTML">
+        </div>
+    </body>
+</html>
