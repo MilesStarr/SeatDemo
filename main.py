@@ -1,3 +1,4 @@
+import rp2
 import network
 import machine
 from machine import UART, Pin, PWM
@@ -15,12 +16,14 @@ RMS = Actuator(14, 1_500_000, 200_000)
 RRS = Actuator(13, 1_500_000, 200_000)
 
 # Initialize WiFi
-wlan = network.WLAN(network.STA_IF)
-wlan.active(True)
-
-# WiFi credentials - replace with your network details
-wifi = open("wifi.txt", 'r')
-wifi_cred = json.load(wifi)
+rp2.country('US')
+ap = network.WLAN(network.AP_IF)
+ap.active(True)
+ap.ifconfig(('192.168.4.1', '255.255.255.0', '192.168.4.1', '8.8.8.8'))
+ap.config(essid="Dyn_Seat", password="iamaseat")
+time.sleep(2)
+print("AP Mode Activated")
+print("IP Address:", ap.ifconfig()[0])
 
 # Initialize variables with default values
 op_param = {'lift_amp'  : 0.5,		# combined amplitude shouldn't exceed 1
@@ -33,13 +36,6 @@ op_param = {'lift_amp'  : 0.5,		# combined amplitude shouldn't exceed 1
 # Web server setup
 app = Microdot()
 
-# Connect to WiFi
-def connect_wifi():
-    wlan.connect(wifi_cred['WIFI_SSID'], wifi_cred['WIFI_PASSWORD'])
-    while not wlan.isconnected():
-        time.sleep(0.1)
-    print("Connected to WiFi")
-    print("IP address:", wlan.ifconfig()[0])
 
 # Serve the main configuration page
 @app.route('/')
@@ -142,9 +138,6 @@ async def main():
     
     await web_srv
 
-# Initialize WiFi connection
-connect_wifi()
-
 # Start the web server
-print("Starting web server on http://" + wlan.ifconfig()[0])
+print("Starting web server on http://" + ap.ifconfig()[0])
 asyncio.run(main())
