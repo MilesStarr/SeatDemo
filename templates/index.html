@@ -10,61 +10,80 @@
                 border: 2px solid #237ce2;
                 padding: 40px;
                 margin: 15px;
-                width: 150px;
-                height: 150px; 
+                width: 110px;
+                height: 80px; 
                 vertical-align: top;
             }
         </style>
     </head>
     <body>
-        <div>
-        <div class="button">
-            <label for="lift">Lift: <span id="lift-val">0.50</span></label> <br>
-            <input type="range" 
-                   name="lift" 
-                   min="0" 
-                   max="100" 
-                   step="1" 
-                   value="50"
-                   hx-post="/lift" 
-                   hx-trigger="input delay:20ms" 
-                   hx-target="#lift-val"
-                   hx-swap="innerHTML">
-        </div>
-        <div class="button">
-            <label for="pitch">Pitch: <span id="pitch-val">0.50</span></label> <br>
-            <input type="range" 
-                   name="pitch" 
-                   min="0" 
-                   max="100" 
-                   step="1" 
-                   value="50"
-                   hx-post="/pitch" 
-                   hx-trigger="input delay:20ms" 
-                   hx-target="#pitch-val"
-                   hx-swap="innerHTML">
-            <br><br>
-            <label for="phase">Phase: <span id="phase-val">500</span></label> <br>
-            <input type="range" 
-                   name="phase" 
-                   min="0" 
-                   max="5000" 
-                   step="10" 
-                   value="500"
-                   hx-post="/phase" 
-                   hx-trigger="input delay:20ms" 
-                   hx-target="#phase-val"
-                   hx-swap="innerHTML">
-        </div>
-        </div>
-        <br>
+        <form hx-post="/graph" hx-trigger="click" hx-target="this">
+            <!-- Hidden inputs for coordinates -->
+            <input type="hidden" id="offset-x" name="offsetX" value="">
+            <input type="hidden" id="offset-y" name="offsetY" value="">
 
+
+            <svg width="400" 
+                height="300"
+                hx-on:click="
+                    document.getElementById('offset-x').value = event.offsetX; 
+                    document.getElementById('offset-y').value = event.offsetY;
+                "
+                xmlns="http://www.w3.org/2000/svg">
+                <!-- Background -->
+                <rect width="100%" height="100%" fill="#f0f8ff" />
+
+                <!-- Pitch/Roll Graph -->
+                <g transform="translate(200, 150)">
+                    <!-- Graph background -->
+                    <rect x="-100" y="-100" width="200" height="200" fill="#ffffff" stroke="#ccc" stroke-width="1"/>
+                    
+                    <!-- Grid lines -->
+                    <line x1="-100" y1="0" x2="100" y2="0" stroke="#ccc" stroke-width="1"/>
+                    <line x1="0" y1="-100" x2="0" y2="100" stroke="#ccc" stroke-width="1"/>
+                    
+                    <!-- Axis labels -->
+                    <text x="90" y="15" font-family="Arial" font-size="12" fill="#000">Roll</text>
+                    <text x="-15" y="-95" font-family="Arial" font-size="12" fill="#000">Pitch</text>
+                    
+                    <!-- Axis ticks -->
+                    <line x1="-100" y1="0" x2="-95" y2="0" stroke="#000" stroke-width="1"/>
+                    <line x1="0" y1="-100" x2="0" y2="-95" stroke="#000" stroke-width="1"/>
+                    <line x1="100" y1="0" x2="95" y2="0" stroke="#000" stroke-width="1"/>
+                    <line x1="0" y1="100" x2="0" y2="95" stroke="#000" stroke-width="1"/>
+                    
+                    <!-- X and Y axis labels -->
+                    <text x="-105" y="5" font-family="Arial" font-size="10" fill="#000">-100</text>
+                    <text x="95" y="5" font-family="Arial" font-size="10" fill="#000">100</text>
+                    <text x="-10" y="-105" font-family="Arial" font-size="10" fill="#000">100</text>
+                    <text x="-10" y="110" font-family="Arial" font-size="10" fill="#000">-100</text>
+                    
+                    <!-- Pitch/Roll indicator point -->
+                    <circle cx="0" cy="0" r="6" fill="#ff4444" />
+                    <circle cx="0" cy="0" r="10" fill="none" stroke="#ff4444" stroke-width="2" stroke-dasharray="4,4"/>
+                    
+                    <!-- Center point -->
+                    <circle cx="0" cy="0" r="2" fill="#000" />
+                </g>
+                    
+                <!-- Collective Slider -->
+                <g transform="translate(50, 150)">
+                    <rect x="0" y="-100" width="20" height="200" fill="#ccc" />
+                    <circle cx="10" cy="0" r="8" fill="#000080" />
+                </g>
+
+            </svg>
+            <BR>
+            Pitch: 0<BR>
+            Roll: 0<BR>
+            Collective: 0
+        </form>
         <div class="button" hx-get="/start" hx-target="#last-command" hx-swap="innerHTML">Start Seat</div>
         <div class="button" hx-get="/stop"  hx-target="#last-command" hx-swap="innerHTML">Stop Seat</div>
-        <H3>Run state:</H3>
+        <br>
         <div id="last-command">
-            Initial stop state, set period in ms before starting <br>
-            <label for="period">Period: <span id="period-val">2000</span></label> <br>
+            Initial stop state, set response time in ms before starting <br>
+            <label for="period">Period: <span id="period-val">100</span></label> <br>
             <input type="range" 
                    name="period" 
                    min="0" 
