@@ -14,9 +14,9 @@ run_loop = Pin(7, mode=Pin.IN, pull=Pin.PULL_UP)  # mechanical stoppage of motio
 RFS = Actuator(15, 1_200_000, 200_000)
 RMS = Actuator(14, 1_500_000, 200_000)
 RRS = Actuator(13, 1_500_000, 200_000)
-LFS = Actuator(12, 1_500_000, 200_000)
-LMS = Actuator(11, 1_500_000, 200_000)
-LRS = Actuator(10, 1_500_000, 200_000)
+LFS = Actuator(12, 1_500_000, -200_000)
+LMS = Actuator(11, 1_500_000, -200_000)
+LRS = Actuator(10, 1_500_000, -200_000)
 
 # Initialize WiFi
 rp2.country('US')
@@ -166,6 +166,7 @@ async def graph(request):
     op_param['lift_amp'] = lift
     op_param['roll_amp'] = roll
     op_param['pitch_amp'] = pitch
+    op_param['start']     = time.ticks_ms()
 
     return f"""            <!-- Hidden inputs for coordinates -->
             <input type="hidden" id="offset-x" name="offsetX" value="">
@@ -237,15 +238,11 @@ async def main_logic():
         while op_param['running']: #not run_loop():
             now = time.ticks_ms()
             dt = (op_param['period'] - time.ticks_diff(now, op_param['start'])) / op_param['period']
+            dt = 0 if dt < 0 else dt
 
-            if dt > 0:
-                lift = op_param['lift_amp'] * (1 - dt) + lift * dt
-                roll = op_param['roll_amp'] * (1 - dt) + roll * dt
-                pitch = op_param['pitch_amp'] * (1 - dt) + pitch * dt
-            else:
-                lift = op_param['lift_amp']
-                roll = op_param['roll_amp']
-                pitch = op_param['pitch_amp']
+            lift = op_param['lift_amp'] * (1 - dt) + lift * dt
+            roll = op_param['roll_amp'] * (1 - dt) + roll * dt
+            pitch = op_param['pitch_amp'] * (1 - dt) + pitch * dt
 
             RFS.out(lift - pitch - roll)
             RMS.out(lift - roll)
