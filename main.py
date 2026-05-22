@@ -14,9 +14,9 @@ run_loop = Pin(7, mode=Pin.IN, pull=Pin.PULL_UP)  # mechanical stoppage of motio
 RFS = Actuator(15, 1_200_000, 200_000)
 RMS = Actuator(14, 1_500_000, 200_000)
 RRS = Actuator(13, 1_500_000, 200_000)
-LFS = Actuator(12, 1_500_000, -200_000)
-LMS = Actuator(11, 1_500_000, -200_000)
-LRS = Actuator(10, 1_500_000, -200_000)
+LFS = Actuator(11, 1_500_000, -200_000)
+LMS = Actuator(10, 1_500_000, -200_000)
+LRS = Actuator( 9, 1_500_000, -200_000)
 
 # Initialize WiFi
 rp2.country('US')
