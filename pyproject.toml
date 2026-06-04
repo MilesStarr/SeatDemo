@@ -1,0 +1,31 @@
+[project]
+name = "ServoControl"
+version = "0.1.0"
+description = "A MicroPython project"
+
+[tool.ty.analysis]
+respect-type-ignore-comments = true
+
+[tool.ty.environment]
+python-platform = "linux"
+extra-paths = ["typings"]
+typeshed = "./typings-stdlib"  # This is a workaround for: https://github.com/astral-sh/ty/issues/523
+
+[tool.ty.src]
+include = ["."]
+exclude = [
+    ".*",
+    "__*",
+    "typings/**",
+]
+
+[tool.ty.terminal]
+output-format = "full"
+error-on-warning = false
+
+[project.optional-dependencies]
+# install to folder typings
+# uv pip install -r pyproject.toml --extra stubs --target typings
+stubs = [
+  "micropython-rp2-rpi_pico-stubs==1.28.0.*"
+]

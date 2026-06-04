@@ -1,3 +1,4 @@
+from utime import ticks_diff
 from machine import UART, Pin, PWM
 import time
 import math
@@ -30,9 +31,40 @@ def trapazoidal(timing):
     timing -= 0.15        
     return timing/0.05 - 1
 
+class CMD():
+    def __init__(self, period: int = 100, washrate: float = 0.001):
+        self.cmd = 0.0
+        self._rate = 0.0
+        self.until = time.ticks_ms()
+        self.out = 0.0
+        self.period = period
+        self._washrate = washrate
+    
+    def target(self, cmd: float):
+        delta = cmd - self.cmd
+        self.cmd = cmd
+        self._rate = delta / self.period + self._rate*max(0,time.ticks_diff(time.ticks_ms(), self.until))/self.period
+        self.until = time.ticks_ms() + self.period
+
+    def rate(self, now):
+        if ticks_diff(self.until, now) > 0:
+            return self.rate
+        return 0
+
+    def washrate(self, now):
+        if ticks_diff(now, self.until) > 500:
+            # wait half second after reaching target before washing out movement
+            return 0
+        err_band = 0.0025
+        wash_dir = 0
+        if self.out < (0.25 * self.cmd - err_band):
+            wash_dir = 1
+        if self.out > (0.25 * self.cmd + err_band):
+            wash_dir = -1
+        return self._washrate * wash_dir
 
 class Actuator():
-    def __init__(self, channel: int, mean = 1_500_000, amp = 200_000, ):
+    def __init__(self, channel: int, mean: int = 1_500_000, amp: int = 200_000, ):
         self.channel = PWM(Pin(channel))
         self.mean    = mean
         self.amp     = amp

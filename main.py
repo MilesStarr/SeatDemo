@@ -7,16 +7,16 @@ import math
 import json
 import uasyncio as asyncio
 from microdot import Microdot, Response, redirect, send_file
-from actuator import Actuator, trapazoidal
+from actuator import Actuator, trapazoidal, CMD
 
 run_loop = Pin(7, mode=Pin.IN, pull=Pin.PULL_UP)  # mechanical stoppage of motion
 
 RFS = Actuator(15, 1_200_000, 200_000)
 RMS = Actuator(14, 1_500_000, 200_000)
 RRS = Actuator(13, 1_500_000, 200_000)
-LFS = Actuator(11, 1_500_000, -200_000)
-LMS = Actuator(10, 1_500_000, -200_000)
-LRS = Actuator( 9, 1_500_000, -200_000)
+LFS = Actuator(11, 1_675_000, -200_000)
+LMS = Actuator(10, 1_600_000, -200_000)
+LRS = Actuator( 9, 1_650_000, -200_000)
 
 # Initialize WiFi
 rp2.country('US')
@@ -29,14 +29,10 @@ print("AP Mode Activated")
 print("IP Address:", ap.ifconfig()[0])
 
 # Initialize variables with default values
-op_param = {'lift_amp'  : 0.0,		# combined amplitude shouldn't exceed 1
-            'pitch_amp' : 0.0,
-            'roll_amp'  : 0.0,
-            'period'    : 100,		# ms response time to input
-            'start'     : time.ticks_ms(),
-            'phase'     : 500,		# ms
-            'running'   : False
-           }
+pitch = CMD()
+roll = CMD()
+lift = CMD()
+running = False
 
 # Web server setup
 app = Microdot()
@@ -60,57 +56,39 @@ async def static(request, path):
         return 'Not found', 404
     return send_file('static/' + path)
 
-@app.post('/lift')
-async def update_lift(request):
-    flag = ""
-    tmp = int(request.form.get('lift'))/100
-    if op_param['pitch_amp'] + tmp > 1:
-        op_param['pitch_amp'] = 1 - tmp
-        flag = "***"
-    op_param['lift_amp'] = tmp
-    return f"{op_param['lift_amp']}{flag}"
-
-@app.post('/pitch')
-async def update_pitch(request):
-    flag = ""
-    tmp = int(request.form.get('pitch'))/100
-    if op_param['lift_amp'] + tmp > 1:
-        op_param['lift_amp'] = 1 - tmp
-        flag = "***"
-    op_param['pitch_amp'] = tmp
-    return f"{op_param['pitch_amp']}{flag}"
-
-@app.post('/phase')
-async def update_phase(request):
-    tmp = int(request.form.get('phase'))
-    op_param['phase'] = tmp
-    return f"{op_param['phase']}"
-
 @app.post('/period')
 async def update_period(request):
-    tmp = int(request.form.get('period'))
-    op_param['period'] = tmp
-    return f"{op_param['period']}"
+    global period
+    period = int(request.form.get('period'))
+    lift.period= period
+    roll.period = period
+    pitch.period = period
+    return f"{period}"
 
 @app.get('/start')
 async def start(request):
-    op_param['running'] = True
+    global running
+    running = True
     return "Running.  Stop to change period."
 
 @app.get('/stop')
 async def stop(request):
-    op_param['running'] = False
+    global running, period, lift, roll, pitch
+    running = False
     RFS.out(0.0)
     RMS.out(0.0)
     RRS.out(0.0)
+    LFS.out(0.0)
+    LMS.out(0.0)
+    LRS.out(0.0)
     return f"""Stop state, set period in ms before restarting <br>
-            <label for="phase">Period: <span id="period-val">{op_param['period']}</span></label> <br>
+            <label for="phase">Period: <span id="period-val">{period}</span></label> <br>
             <input type="range" 
                    name="period" 
                    min="0" 
                    max="1000" 
                    step="5" 
-                   value="{op_param['period']}"
+                   value="{period}"
                    hx-post="/period" 
                    hx-trigger="input delay:20ms" 
                    hx-target="#period-val"
@@ -119,6 +97,7 @@ async def stop(request):
 
 @app.post('/graph')
 async def graph(request):
+    global running, period, lift, roll, pitch
     x = request.form.get('offsetX')
     y = request.form.get('offsetY')
     wrong = True
@@ -133,40 +112,39 @@ async def graph(request):
     if 50 <= x <= 70 and 50 <= y <= 250:
         # collective
         wrong = False
-        lift = (150-y)/100.
-        remainder = 1 - abs(lift)
-        if abs(op_param['pitch_amp']) + abs(op_param['roll_amp']) <= remainder:
-            pitch = op_param['pitch_amp']
-            roll = op_param['roll_amp']
+        lift_val = (150-y)/100.
+        remainder = 1 - abs(lift_val)
+        if abs(pitch.cmd) + abs(roll.cmd) <= remainder:
+            pitch_val = pitch.cmd
+            roll_val = roll.cmd
         else:
-            pitch = remainder * (op_param['pitch_amp'] / (abs(op_param['roll_amp']) + abs(op_param['pitch_amp'])))
-            roll = remainder * (op_param['roll_amp'] / (abs(op_param['roll_amp']) + abs(op_param['pitch_amp'])))
+            pitch_val = remainder * (pitch.cmd / (abs(roll.cmd) + abs(pitch.cmd)))
+            roll_val = remainder * (roll.cmd / (abs(roll.cmd) + abs(pitch.cmd)))
 
     if 100 <= x <= 300 and 50 <= y <= 250:
         # pitch/roll
         wrong = False
-        pitch = (150-y)/100.
-        roll  = (x-200)/100.
+        pitch_val = (150-y)/100.
+        roll_val  = (x-200)/100.
         total = abs(pitch) + abs(roll)
         if total > 1:
-            pitch = pitch / total
-            roll  = roll  / total
+            pitch_val = pitch_val / total
+            roll_val  = roll_val  / total
         remainder = 1 - (abs(pitch) + abs(roll))
-        if abs(op_param['lift_amp']) < remainder:
-            lift = op_param['lift_amp']
+        if abs(lift.cmd) < remainder:
+            lift_val = lift.cmd
         else:
-            lift = remainder * op_param['lift_amp'] / abs(op_param['lift_amp'])
+            lift_val = remainder * lift.cmd / abs(lift.cmd)
     
     if wrong:
         # no click inside command areas
-        lift = 0
-        roll = 0
-        pitch = 0
+        lift_val = 0
+        roll_val = 0
+        pitch_val = 0
 
-    op_param['lift_amp'] = lift
-    op_param['roll_amp'] = roll
-    op_param['pitch_amp'] = pitch
-    op_param['start']     = time.ticks_ms()
+    lift.target(lift_val)
+    roll.target(roll_val)
+    pitch.target(pitch_val)
 
     return f"""            <!-- Hidden inputs for coordinates -->
             <input type="hidden" id="offset-x" name="offsetX" value="">
@@ -209,8 +187,8 @@ async def graph(request):
                     <text x="-10" y="110" font-family="Arial" font-size="10" fill="#000">-100</text>
                     
                     <!-- Pitch/Roll indicator point -->
-                    <circle cx="{int(100*roll)}" cy="{int(-100*pitch)}" r="6" fill="#ff4444" />
-                    <circle cx="{int(100*roll)}" cy="{int(-100*pitch)}" r="10" fill="none" stroke="#ff4444" stroke-width="2" stroke-dasharray="4,4"/>
+                    <circle cx="{int(100*roll_val)}" cy="{int(-100*pitch_val)}" r="6" fill="#ff4444" />
+                    <circle cx="{int(100*roll_val)}" cy="{int(-100*pitch_val)}" r="10" fill="none" stroke="#ff4444" stroke-width="2" stroke-dasharray="4,4"/>
                     
                     <!-- Center point -->
                     <circle cx="0" cy="0" r="2" fill="#000" />
@@ -219,37 +197,38 @@ async def graph(request):
                 <!-- Collective Slider -->
                 <g transform="translate(50, 150)">
                     <rect x="0" y="-100" width="20" height="200" fill="#ccc" />
-                    <circle cx="10" cy="{int(-100*lift)}" r="8" fill="#000080" />
+                    <circle cx="10" cy="{int(-100*lift_val)}" r="8" fill="#000080" />
                 </g>
 
             </svg>
             <BR>
-            Pitch: {int(100*pitch)}<BR>
-            Roll: {int(100*roll)}<BR>
-            Collective: {int(100*lift)}"""
+            Pitch: {int(100*pitch_val)}<BR>
+            Roll: {int(100*roll_val)}<BR>
+            Collective: {int(100*lift_val)}"""
 
 async def main_logic():
+    global running, period, lift, roll, pitch
     while True:
 
-        lift = op_param['lift_amp']
-        roll = op_param['roll_amp']
-        pitch = op_param['pitch_amp']
+        lift = lift.out
+        roll = roll.out
+        pitch = pitch.out
+        then = time.ticks_ms()
 
-        while op_param['running']: #not run_loop():
+        while running: #not run_loop():
             now = time.ticks_ms()
-            dt = (op_param['period'] - time.ticks_diff(now, op_param['start'])) / op_param['period']
-            dt = 0 if dt < 0 else dt
+            dt = time.ticks_diff(now, then)
 
-            lift = op_param['lift_amp'] * (1 - dt) + lift * dt
-            roll = op_param['roll_amp'] * (1 - dt) + roll * dt
-            pitch = op_param['pitch_amp'] * (1 - dt) + pitch * dt
+            lift = lift.out + (lift.rate(now) + lift.washrate(now)) * dt
+            roll = roll.out + (roll.rate(now) + roll.washrate(now)) * dt
+            pitch = pitch.out + (pitch.rate(now) + pitch.washrate(now)) * dt
 
-            RFS.out(lift - pitch - roll)
-            RMS.out(lift - roll)
-            RRS.out(lift + pitch - roll)
-            LFS.out(lift - pitch + roll)
-            LMS.out(lift + roll)
-            LRS.out(lift + pitch + roll)
+            RFS.out(lift.out - pitch.out - roll.out)
+            RMS.out(lift.out - roll.out)
+            RRS.out(lift.out + pitch.out - roll.out)
+            LFS.out(lift.out - pitch.out + roll.out)
+            LMS.out(lift.out + roll.out)
+            LRS.out(lift.out + pitch.out + roll.out)
             
             await asyncio.sleep_ms(10)
         await asyncio.sleep_ms(100)
