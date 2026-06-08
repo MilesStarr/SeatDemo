@@ -1,13 +1,10 @@
 import rp2
 import network
-import machine
-from machine import UART, Pin, PWM
+from machine import Pin
 import time
-import math
-import json
 import uasyncio as asyncio
-from microdot import Microdot, Response, redirect, send_file
-from actuator import Actuator, trapazoidal, CMD
+from microdot import Microdot, send_file
+from actuator import Actuator, CMD
 
 run_loop = Pin(7, mode=Pin.IN, pull=Pin.PULL_UP)  # mechanical stoppage of motion
 
@@ -81,6 +78,9 @@ async def stop(request):
     LFS.out(0.0)
     LMS.out(0.0)
     LRS.out(0.0)
+    pitch = CMD()
+    roll = CMD()
+    lift = CMD()
     return f"""Stop state, set period in ms before restarting <br>
             <label for="phase">Period: <span id="period-val">{period}</span></label> <br>
             <input type="range" 
@@ -210,18 +210,18 @@ async def main_logic():
     global running, period, lift, roll, pitch
     while True:
 
-        lift = lift.out
-        roll = roll.out
-        pitch = pitch.out
+        # lift = lift.out
+        # roll = roll.out
+        # pitch = pitch.out
         then = time.ticks_ms()
 
         while running: #not run_loop():
             now = time.ticks_ms()
             dt = time.ticks_diff(now, then)
 
-            lift = lift.out + (lift.rate(now) + lift.washrate(now)) * dt
-            roll = roll.out + (roll.rate(now) + roll.washrate(now)) * dt
-            pitch = pitch.out + (pitch.rate(now) + pitch.washrate(now)) * dt
+            lift.out = lift.out + (lift.rate(now) + lift.washrate(now)) * dt
+            roll.out = roll.out + (roll.rate(now) + roll.washrate(now)) * dt
+            pitch.out = pitch.out + (pitch.rate(now) + pitch.washrate(now)) * dt
 
             RFS.out(lift.out - pitch.out - roll.out)
             RMS.out(lift.out - roll.out)
@@ -230,7 +230,9 @@ async def main_logic():
             LMS.out(lift.out + roll.out)
             LRS.out(lift.out + pitch.out + roll.out)
             
-            await asyncio.sleep_ms(10)
+            then = now
+
+            await asyncio.sleep_ms(8)
         await asyncio.sleep_ms(100)
 
 async def main():

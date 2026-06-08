@@ -74,5 +74,6 @@ class Actuator():
     
     def out(self, value: float):
         # value is a proportion of full scale output from -1 to 1
+        value = 1 if value > 1 else -1 if value < -1 else value
         self.channel.duty_ns(int(self.mean + self.amp * value))
         
