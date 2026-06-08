@@ -1,8 +1,6 @@
 from utime import ticks_diff
-from machine import UART, Pin, PWM
+from machine import Pin, PWM
 import time
-import math
-import rp2
 
 def trapazoidal(timing):
     # 25% neutral dwell, 5% rise time, 15% dwell, 5% to neutral, 25% neutral dwell, 5% fall time, 15% dwell, 5% to neutral
@@ -32,7 +30,7 @@ def trapazoidal(timing):
     return timing/0.05 - 1
 
 class CMD():
-    def __init__(self, period: int = 100, washrate: float = 0.001):
+    def __init__(self, period: int = 100, washrate: float = 0.000_1):
         self.cmd = 0.0
         self._rate = 0.0
         self.until = time.ticks_ms()
@@ -43,16 +41,16 @@ class CMD():
     def target(self, cmd: float):
         delta = cmd - self.cmd
         self.cmd = cmd
-        self._rate = delta / self.period + self._rate*max(0,time.ticks_diff(time.ticks_ms(), self.until))/self.period
+        self._rate = delta / self.period + self._rate*max(0,time.ticks_diff(self.until, time.ticks_ms()))/self.period
         self.until = time.ticks_ms() + self.period
 
     def rate(self, now):
         if ticks_diff(self.until, now) > 0:
-            return self.rate
+            return self._rate
         return 0
 
     def washrate(self, now):
-        if ticks_diff(now, self.until) > 500:
+        if ticks_diff(now, self.until) < 500:
             # wait half second after reaching target before washing out movement
             return 0
         err_band = 0.0025

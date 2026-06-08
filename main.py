@@ -55,7 +55,6 @@ async def static(request, path):
 
 @app.post('/period')
 async def update_period(request):
-    global period
     period = int(request.form.get('period'))
     lift.period= period
     roll.period = period
@@ -70,7 +69,7 @@ async def start(request):
 
 @app.get('/stop')
 async def stop(request):
-    global running, period, lift, roll, pitch
+    global running, lift, roll, pitch
     running = False
     RFS.out(0.0)
     RMS.out(0.0)
@@ -82,22 +81,51 @@ async def stop(request):
     roll = CMD()
     lift = CMD()
     return f"""Stop state, set period in ms before restarting <br>
-            <label for="phase">Period: <span id="period-val">{period}</span></label> <br>
+            <label for="phase">Period: <span id="period-val">{lift.period}</span></label> <br>
             <input type="range" 
                    name="period" 
                    min="0" 
                    max="1000" 
                    step="5" 
-                   value="{period}"
+                   value="{lift.period}"
                    hx-post="/period" 
                    hx-trigger="input delay:20ms" 
                    hx-target="#period-val"
                    hx-swap="innerHTML">
             """
 
+@app.get('/debug')
+async def debug(request):
+    global running, lift, roll, pitch
+    return f"""
+                <table>
+                <TR>
+                    <TH></TH>
+                    <TH>CMD</TH>
+                    <TH>OUT</TH>
+                </TR>
+                <TR>
+                    <TH>Lift</TH>
+                    <TD>{lift.cmd:.5f}</TD>
+                    <TD>{lift.out:.5f}</TD>
+                </TR>
+                <TR>
+                    <TH>Roll</TH>
+                    <TD>{roll.cmd:.5f}</TD>
+                    <TD>{roll.out:.5f}</TD>
+                </TR>
+                <TR>
+                    <TH>Pitch</TH>
+                    <TD>{pitch.cmd:.5f}</TD>
+                    <TD>{pitch.out:.5f}</TD>
+                </TR>
+            </table>"""
+
 @app.post('/graph')
 async def graph(request):
-    global running, period, lift, roll, pitch
+    global running, lift, roll, pitch
+    print("entering graph")
+    print(lift.out, roll.out, pitch.out)
     x = request.form.get('offsetX')
     y = request.form.get('offsetY')
     wrong = True
@@ -126,13 +154,15 @@ async def graph(request):
         wrong = False
         pitch_val = (150-y)/100.
         roll_val  = (x-200)/100.
-        total = abs(pitch) + abs(roll)
+        total = abs(pitch_val) + abs(roll_val)
         if total > 1:
             pitch_val = pitch_val / total
             roll_val  = roll_val  / total
-        remainder = 1 - (abs(pitch) + abs(roll))
+        remainder = 1 - (abs(pitch_val) + abs(roll_val))
         if abs(lift.cmd) < remainder:
             lift_val = lift.cmd
+        elif abs(lift.cmd) < 0.0002:
+            lift_val = 0.0
         else:
             lift_val = remainder * lift.cmd / abs(lift.cmd)
     
@@ -142,9 +172,12 @@ async def graph(request):
         roll_val = 0
         pitch_val = 0
 
+    print("updating target")
+    print(lift.out, roll.out, pitch.out)
     lift.target(lift_val)
     roll.target(roll_val)
     pitch.target(pitch_val)
+    print(lift.out, roll.out, pitch.out)
 
     return f"""            <!-- Hidden inputs for coordinates -->
             <input type="hidden" id="offset-x" name="offsetX" value="">
@@ -231,6 +264,7 @@ async def main_logic():
             LRS.out(lift.out + pitch.out + roll.out)
             
             then = now
+#            print(dt, lift.out, roll.out, pitch.out)
 
             await asyncio.sleep_ms(8)
         await asyncio.sleep_ms(100)
