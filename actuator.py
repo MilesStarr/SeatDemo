@@ -50,9 +50,6 @@ class CMD():
         return 0
 
     def washrate(self, now):
-        if ticks_diff(now, self.until) < 500:
-            # wait half second after reaching target before washing out movement
-            return 0
         err_band = 0.0025
         wash_dir = 0
         if self.out < (0.25 * self.cmd - err_band):
